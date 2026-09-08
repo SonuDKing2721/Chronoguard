@@ -1,0 +1,18 @@
+# Chronoguard — Python Dependencies
+# Install with:  pip install -r requirements.txt
+
+# ── Core ML stack ─────────────────────────────────────────────
+pandas>=1.5.0
+numpy>=1.23.0
+scikit-learn>=1.2.0
+joblib>=1.2.0
+
+# ── Explainability (optional but recommended) ─────────────────
+# Enables SHAP feature importance plots in explainability.py
+# Falls back to sklearn permutation importance if not installed
+shap>=0.42.0
+
+# ── Notebook support (optional) ──────────────────────────────
+# Only needed if running .ipynb files
+# jupyter>=1.0.0
+# ipykernel>=6.0.0

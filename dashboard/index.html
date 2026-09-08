@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronoguard — Network Threat Intelligence Dashboard</title>
+    <meta name="description" content="Real-time network traffic analysis, anomaly detection, and threat classification dashboard powered by machine learning. CICIDS2017 dataset.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<header class="top-bar">
+    <div class="brand">
+        <div class="brand-icon">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="14" stroke="url(#brandGrad)" stroke-width="2.5"/>
+                <path d="M16 6 L16 16 L23 20" stroke="url(#brandGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="16" cy="16" r="3" fill="url(#brandGrad)"/>
+                <defs>
+                    <linearGradient id="brandGrad" x1="0" y1="0" x2="32" y2="32">
+                        <stop offset="0%" stop-color="#06b6d4"/>
+                        <stop offset="100%" stop-color="#8b5cf6"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+        </div>
+        <div class="brand-text">
+            <h1>CHRONOGUARD</h1>
+            <span class="brand-sub">Network Threat Intelligence System</span>
+        </div>
+    </div>
+    <div class="header-center">
+        <div class="window-display">
+            <span class="window-label">CURRENT WINDOW</span>
+            <span class="window-time" id="currentTimestamp">—</span>
+        </div>
+        <div class="status-pill" id="systemStatus">
+            <span class="status-dot"></span>
+            <span>MONITORING</span>
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="dataset-badge">
+            <span>CICIDS2017</span>
+        </div>
+        <div class="window-counter" id="windowCounter">— / —</div>
+    </div>
+</header>
+
+<!-- ═══════════════════════ USER DATA & THRESHOLD CONTROLS ═══════════════════════ -->
+<section class="data-toolbar">
+    <div class="toolbar-left">
+        <div class="control-group">
+            <label for="datasetSelect"><span class="control-icon">📁</span> Select Dataset:</label>
+            <select id="datasetSelect" class="styled-select">
+                <option value="test">test.csv (Evaluation Split — 219 Windows)</option>
+                <option value="train">train.csv (Training Split — 868 Windows)</option>
+                <option value="custom">Upload Custom CSV File...</option>
+            </select>
+        </div>
+        <div class="custom-file-wrap" id="customFileWrap" style="display: none;">
+            <input type="file" id="csvFileInput" accept=".csv" class="file-input">
+            <label for="csvFileInput" class="file-input-btn" id="fileInputLabel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Choose .csv</span>
+            </label>
+            <span class="file-name" id="selectedFileName">No file selected</span>
+        </div>
+        <button class="btn-primary apply-data-btn" id="btnApplyData" title="Apply selected dataset to dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Apply Data</span>
+        </button>
+    </div>
+
+    <div class="toolbar-center">
+        <div class="stat-chip" id="chipTotalWindows">
+            <span class="chip-label">Windows</span>
+            <span class="chip-val" id="valTotalWindows">219</span>
+        </div>
+        <div class="stat-chip chip-critical" id="chipCriticalCount">
+            <span class="chip-label">Critical</span>
+            <span class="chip-val" id="valCriticalWindows">38</span>
+        </div>
+        <div class="stat-chip chip-verified" id="chipVerifiedCount">
+            <span class="chip-label">User Verified</span>
+            <span class="chip-val" id="valVerifiedWindows">0</span>
+        </div>
+    </div>
+
+    <div class="toolbar-right">
+        <button class="btn-secondary" id="btnToggleThresholds" title="Configure risk thresholds">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span id="thresholdToggleText">Critical Cutoff: 75</span>
+        </button>
+    </div>
+</section>
+
+<!-- Expandable Threshold Settings Drawer -->
+<section class="threshold-drawer" id="thresholdDrawer" style="display: none;">
+    <div class="drawer-header">
+        <div>
+            <h3>User Risk Score & Critical Cutoff Configuration</h3>
+            <p class="drawer-sub">Customize the mathematical cutoffs and weights to inspect and verify why windows are classified as Critical.</p>
+        </div>
+        <button class="drawer-close-btn" id="btnCloseThresholds">&times;</button>
+    </div>
+    <div class="threshold-controls-grid">
+        <div class="range-field">
+            <div class="range-labels">
+                <span>Critical Score Threshold</span>
+                <span class="range-val" id="lblCritThreshold">75</span>
+            </div>
+            <input type="range" id="sliderCritThreshold" min="50" max="95" value="75" step="1">
+            <span class="range-hint">Risk Score &ge; this value triggers CRITICAL alert</span>
+        </div>
+        <div class="range-field">
+            <div class="range-labels">
+                <span>High Risk Threshold</span>
+                <span class="range-val" id="lblHighThreshold">50</span>
+            </div>
+            <input type="range" id="sliderHighThreshold" min="30" max="74" value="50" step="1">
+            <span class="range-hint">Risk Score &ge; this value triggers HIGH alert</span>
+        </div>
+        <div class="range-field">
+            <div class="range-labels">
+                <span>Anomaly Sensitivity</span>
+                <span class="range-val" id="lblAnomalyWeight">1.2x</span>
+            </div>
+            <input type="range" id="sliderAnomalyWeight" min="0.5" max="2.0" value="1.2" step="0.1">
+            <span class="range-hint">Scales penalty for Isolation Forest outliers</span>
+        </div>
+        <div class="drawer-actions">
+            <button class="btn-primary" id="btnApplyThresholds">Apply Thresholds</button>
+            <button class="btn-secondary" id="btnResetThresholds">Reset Defaults</button>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════ MAIN GRID ═══════════════════════ -->
+<main class="dashboard-grid">
+
+    <!-- ---- TRAFFIC METRICS ---- -->
+    <section class="panel metrics-panel" id="metricsPanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <h2>Traffic Metrics</h2>
+        </div>
+        <div class="metrics-grid">
+            <div class="metric-card" id="metricPacketRate">
+                <span class="metric-label">Packet Rate</span>
+                <span class="metric-value" data-field="packet_rate">—</span>
+                <span class="metric-unit">pkts/s</span>
+                <div class="metric-bar"><div class="metric-bar-fill"></div></div>
+            </div>
+            <div class="metric-card" id="metricByteRate">
+                <span class="metric-label">Byte Rate</span>
+                <span class="metric-value" data-field="byte_rate">—</span>
+                <span class="metric-unit">bytes/s</span>
+                <div class="metric-bar"><div class="metric-bar-fill"></div></div>
+            </div>
+            <div class="metric-card" id="metricConnections">
+                <span class="metric-label">Connections</span>
+                <span class="metric-value" data-field="connection_count">—</span>
+                <span class="metric-unit">flows/window</span>
+                <div class="metric-bar"><div class="metric-bar-fill"></div></div>
+            </div>
+            <div class="metric-card" id="metricSynFlags">
+                <span class="metric-label">SYN Flag Rate</span>
+                <span class="metric-value" data-field="avg_syn_flags">—</span>
+                <span class="metric-unit">avg/flow</span>
+                <div class="metric-bar"><div class="metric-bar-fill"></div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ---- RISK GAUGE ---- -->
+    <section class="panel gauge-panel" id="gaugePanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10"/><path d="M12 8v4l3 3"/></svg>
+            <h2>Composite Risk Score</h2>
+        </div>
+        <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 200 130">
+                <!-- Background arc -->
+                <path class="gauge-bg" d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke-width="14" stroke-linecap="round"/>
+                <!-- Colored fill arc -->
+                <path class="gauge-fill" id="gaugeFill" d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke-width="14" stroke-linecap="round"/>
+                <!-- Tick marks -->
+                <text x="16" y="125" class="gauge-tick">0</text>
+                <text x="35" y="42" class="gauge-tick">25</text>
+                <text x="93" y="22" class="gauge-tick">50</text>
+                <text x="152" y="42" class="gauge-tick">75</text>
+                <text x="175" y="125" class="gauge-tick">100</text>
+            </svg>
+            <div class="gauge-center">
+                <span class="gauge-score" id="gaugeScore">—</span>
+                <span class="gauge-level" id="gaugeLevel">—</span>
+            </div>
+        </div>
+        <div class="risk-breakdown" id="riskBreakdown">
+            <div class="risk-factor">
+                <span>Classification</span>
+                <div class="risk-factor-bar"><div class="risk-factor-fill" id="riskClassification"></div></div>
+            </div>
+            <div class="risk-factor">
+                <span>Anomaly</span>
+                <div class="risk-factor-bar"><div class="risk-factor-fill" id="riskAnomaly"></div></div>
+            </div>
+            <div class="risk-factor">
+                <span>Trend</span>
+                <div class="risk-factor-bar"><div class="risk-factor-fill" id="riskTrend"></div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ---- CLASSIFICATION ---- -->
+    <section class="panel classification-panel" id="classificationPanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <h2>Attack Classification</h2>
+        </div>
+        <div class="classification-result" id="classResult">
+            <div class="class-badge" id="classBadge">
+                <span class="class-icon" id="classIcon"></span>
+                <span class="class-name" id="className">—</span>
+            </div>
+            <div class="class-confidence-label">Model Confidence</div>
+        </div>
+        <div class="confidence-bars" id="confidenceBars">
+            <div class="conf-row" data-class="0">
+                <span class="conf-label">BENIGN</span>
+                <div class="conf-bar"><div class="conf-fill benign-fill"></div></div>
+                <span class="conf-pct">—</span>
+            </div>
+            <div class="conf-row" data-class="1">
+                <span class="conf-label">DDoS</span>
+                <div class="conf-bar"><div class="conf-fill ddos-fill"></div></div>
+                <span class="conf-pct">—</span>
+            </div>
+            <div class="conf-row" data-class="2">
+                <span class="conf-label">DoS</span>
+                <div class="conf-bar"><div class="conf-fill dos-fill"></div></div>
+                <span class="conf-pct">—</span>
+            </div>
+            <div class="conf-row" data-class="3">
+                <span class="conf-label">Brute Force</span>
+                <div class="conf-bar"><div class="conf-fill bf-fill"></div></div>
+                <span class="conf-pct">—</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ---- SHAP EXPLAINABILITY ---- -->
+    <section class="panel shap-panel" id="shapPanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <h2>Why This Classification? <span class="shap-tag">SHAP</span></h2>
+        </div>
+        <div class="shap-bars" id="shapBars">
+            <!-- Filled by JS -->
+        </div>
+    </section>
+
+    <!-- ---- TIMELINE CHART ---- -->
+    <section class="panel timeline-panel" id="timelinePanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            <h2>Risk Timeline</h2>
+            <div class="timeline-legend">
+                <span class="legend-dot legend-low"></span>Low
+                <span class="legend-dot legend-med"></span>Med
+                <span class="legend-dot legend-high"></span>High
+                <span class="legend-dot legend-crit"></span>Crit
+            </div>
+        </div>
+        <div class="timeline-container">
+            <canvas id="timelineCanvas" width="900" height="180"></canvas>
+            <div class="timeline-cursor" id="timelineCursor"></div>
+        </div>
+    </section>
+
+    <!-- ---- ANOMALY DETECTION ---- -->
+    <section class="panel anomaly-panel" id="anomalyPanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <h2>Anomaly Detection</h2>
+        </div>
+        <div class="anomaly-content">
+            <div class="anomaly-indicator" id="anomalyIndicator">
+                <div class="anomaly-ring" id="anomalyRing">
+                    <span class="anomaly-label" id="anomalyLabel">NORMAL</span>
+                </div>
+                <div class="anomaly-score-display">
+                    <span class="anomaly-score-label">Isolation Forest Score</span>
+                    <span class="anomaly-score-value" id="anomalyScoreValue">—</span>
+                </div>
+            </div>
+            <div class="mitre-section" id="mitreSection">
+                <h3>MITRE ATT&CK Mapping</h3>
+                <div class="mitre-cards" id="mitreCards">
+                    <div class="mitre-empty">No techniques mapped</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ---- ALERT FEED ---- -->
+    <section class="panel alerts-panel" id="alertsPanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <h2>Alert Feed</h2>
+            <button class="clear-alerts-btn" id="clearAlerts" title="Clear alerts">Clear</button>
+        </div>
+        <div class="alerts-list" id="alertsList">
+            <div class="alert-empty">No alerts yet. Advance through windows to see alerts.</div>
+        </div>
+    </section>
+
+    <!-- ---- USER VERIFICATION & AUDIT ---- -->
+    <section class="panel audit-panel" id="auditPanel">
+        <div class="panel-header">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <h2>User Verification & Audit</h2>
+            <div class="audit-status-badge pending" id="auditStatusBadge">PENDING REVIEW</div>
+        </div>
+        <div class="audit-content">
+            <div class="audit-compare-row">
+                <div class="audit-compare-box">
+                    <span class="compare-label">Dataset Ground Truth</span>
+                    <span class="compare-val" id="auditGroundTruth">BENIGN [0]</span>
+                </div>
+                <div class="compare-arrow" id="auditMatchIndicator">➔</div>
+                <div class="audit-compare-box">
+                    <span class="compare-label">Model Prediction</span>
+                    <span class="compare-val" id="auditPredicted">BENIGN [0]</span>
+                </div>
+            </div>
+
+            <div class="critical-reason-card" id="criticalReasonCard">
+                <div class="reason-header">
+                    <span class="reason-icon">🔍</span>
+                    <span class="reason-title" id="criticalReasonTitle">Score Factor Analysis</span>
+                </div>
+                <p class="reason-text" id="criticalReasonText">
+                    Normal traffic baseline. No SYN flood or volumetric spike detected.
+                </p>
+            </div>
+
+            <div class="audit-actions">
+                <button class="audit-btn btn-confirm" id="btnAuditConfirm" title="Confirm that this window is an active threat">
+                    <span>🛡️ Confirm Threat</span>
+                </button>
+                <button class="audit-btn btn-warning" id="btnAuditDowngrade" title="Downgrade threat level to Warning">
+                    <span>⚠️ Downgrade</span>
+                </button>
+                <button class="audit-btn btn-dismiss" id="btnAuditFalsePos" title="Mark this alert as a False Positive">
+                    <span>❌ False Positive</span>
+                </button>
+            </div>
+
+            <div class="analyst-notes-wrap">
+                <input type="text" class="analyst-notes-input" id="analystNotesInput" placeholder="Add analyst verification notes for this window...">
+                <button class="notes-save-btn" id="btnSaveNotes">Save Note</button>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ═══════════════════════ TRAFFIC WINDOWS INSPECTOR TABLE ═══════════════════════ -->
+<section class="table-section">
+    <div class="table-card">
+        <div class="table-header">
+            <div class="table-title-area">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                <h3>Traffic Windows Inspector</h3>
+                <span class="table-subtitle">Click any window row to check its critical score, features, and model decisions.</span>
+            </div>
+            <div class="table-filters">
+                <div class="filter-pills" id="tableFilterPills">
+                    <button class="filter-pill active" data-filter="all">All (<span id="countAll">219</span>)</button>
+                    <button class="filter-pill pill-crit" data-filter="critical">Critical (<span id="countCrit">38</span>)</button>
+                    <button class="filter-pill pill-attacks" data-filter="attacks">Attacks (<span id="countAttacks">44</span>)</button>
+                    <button class="filter-pill pill-benign" data-filter="benign">Benign (<span id="countBenign">175</span>)</button>
+                    <button class="filter-pill pill-reviewed" data-filter="reviewed">Audited (<span id="countReviewed">0</span>)</button>
+                </div>
+                <div class="table-search">
+                    <input type="text" id="tableSearchInput" placeholder="Filter by timestamp or label...">
+                </div>
+            </div>
+        </div>
+
+        <div class="table-scroll">
+            <table class="traffic-table" id="trafficTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Timestamp</th>
+                        <th>Packet Rate</th>
+                        <th>Byte Rate</th>
+                        <th>Connections</th>
+                        <th>SYN Ratio</th>
+                        <th>Ground Truth</th>
+                        <th>Prediction</th>
+                        <th>Risk Score</th>
+                        <th>Status</th>
+                        <th>User Audit</th>
+                    </tr>
+                </thead>
+                <tbody id="trafficTableBody">
+                    <!-- Populated dynamically by app.js -->
+                </tbody>
+            </table>
+        </div>
+        <div class="table-pagination">
+            <span class="pagination-info" id="paginationInfo">Showing 1-25 of 219 windows</span>
+            <div class="pagination-buttons">
+                <button class="page-btn" id="btnPagePrev">&laquo; Prev</button>
+                <span class="page-num" id="pageNum">Page 1 of 9</span>
+                <button class="page-btn" id="btnPageNext">Next &raquo;</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════ CONTROLS BAR ═══════════════════════ -->
+<footer class="controls-bar">
+    <div class="controls-left">
+        <button class="ctrl-btn" id="btnFirst" title="First window">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 19 2 12 11 5"/><line x1="22" y1="5" x2="22" y2="19"/></svg>
+        </button>
+        <button class="ctrl-btn" id="btnPrev" title="Previous window">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+    </div>
+    <div class="controls-center">
+        <button class="ctrl-btn play-btn" id="btnPlay" title="Auto-play">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="playIcon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="pauseIcon" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <div class="speed-control">
+            <label for="speedSlider">Speed</label>
+            <input type="range" id="speedSlider" min="200" max="3000" value="1200" step="100">
+            <span id="speedLabel">1.2s</span>
+        </div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+    <div class="controls-right">
+        <button class="ctrl-btn" id="btnNext" title="Next window">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="ctrl-btn" id="btnLast" title="Last window">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 19 22 12 13 5"/><line x1="2" y1="5" x2="2" y2="19"/></svg>
+        </button>
+    </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
