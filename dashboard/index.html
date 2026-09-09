@@ -57,6 +57,7 @@
         <div class="control-group">
             <label for="datasetSelect"><span class="control-icon">📁</span> Select Dataset:</label>
             <select id="datasetSelect" class="styled-select">
+                <option value="attack_sim" selected>attack_sim.csv (Live Attack & Triage Demo Split)</option>
                 <option value="test">test.csv (Evaluation Split — 219 Windows)</option>
                 <option value="train">train.csv (Training Split — 868 Windows)</option>
                 <option value="custom">Upload Custom CSV File...</option>
@@ -136,6 +137,58 @@
         <div class="drawer-actions">
             <button class="btn-primary" id="btnApplyThresholds">Apply Thresholds</button>
             <button class="btn-secondary" id="btnResetThresholds">Reset Defaults</button>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════ LIVE ATTACK & TRIAGE DEMO BAR ═══════════════════════ -->
+<section class="scenario-demo-bar" id="scenarioDemoBar">
+    <div class="demo-bar-inner">
+        <div class="demo-title-wrap">
+            <span class="demo-live-beacon"></span>
+            <div class="demo-title-content">
+                <span class="demo-badge">LIVE ATTACK & TRIAGE SHOWCASE</span>
+                <span class="demo-subtitle">Simulate and demonstrate detection & analyst verification states:</span>
+            </div>
+        </div>
+        <div class="demo-scenario-buttons">
+            <button class="demo-btn btn-scenario-threat" id="btnDemoThreat" title="Simulate live DoS SYN Flood attack (Confirmed Threat)">
+                <span class="demo-btn-badge">SCENARIO 1</span>
+                <span class="demo-btn-icon">🛡️</span>
+                <div class="demo-btn-labels">
+                    <strong>Confirmed Threat</strong>
+                    <span>Live DoS / SYN Flood</span>
+                </div>
+            </button>
+            <button class="demo-btn btn-scenario-downgrade" id="btnDemoDowngrade" title="Simulate off-hours heavy backup burst (Downgraded to Warning)">
+                <span class="demo-btn-badge">SCENARIO 2</span>
+                <span class="demo-btn-icon">⚠️</span>
+                <div class="demo-btn-labels">
+                    <strong>Downgrade</strong>
+                    <span>Backup Spike &rarr; Warning</span>
+                </div>
+            </button>
+            <button class="demo-btn btn-scenario-falsepos" id="btnDemoFalsePos" title="Simulate internal staging dev probe (Marked as False Positive)">
+                <span class="demo-btn-badge">SCENARIO 3</span>
+                <span class="demo-btn-icon">❌</span>
+                <div class="demo-btn-labels">
+                    <strong>False Positive</strong>
+                    <span>Dev Probe &rarr; Benign</span>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Interactive Scenario Banner -->
+    <div class="scenario-banner" id="scenarioBanner" style="display: none;">
+        <div class="scenario-banner-header">
+            <span class="scenario-pill" id="scenarioPill">ACTIVE DEMO</span>
+            <h4 id="scenarioBannerTitle">—</h4>
+        </div>
+        <p class="scenario-banner-desc" id="scenarioBannerDesc">—</p>
+        <div class="scenario-banner-footer">
+            <span class="scenario-action-hint" id="scenarioActionHint">Recommended Action: Verify in Audit Panel</span>
+            <button class="btn-execute-triage" id="btnExecuteTriage">⚡ Auto-Triage This Scenario</button>
         </div>
     </div>
 </section>

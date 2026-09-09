@@ -96,9 +96,14 @@ def compute_window_scores(row, true_label, predicted_label):
     conn_spike = min(1.0, conn_count / 2500.0)
 
     if predicted_label == 0:  # BENIGN
-        base_risk = 8.0 + (p_spike * 10.0) + (syn_spike * 5.0)
-        anomaly_score = round(random.uniform(0.04, 0.22), 4)
-        is_anomaly = False
+        # Benign traffic can have volumetric backup bursts or dev probes
+        base_risk = 8.0 + (p_spike * 15.0) + (b_spike * 42.0) + (syn_spike * 10.0)
+        if b_spike > 0.8 or p_spike > 0.5:
+            anomaly_score = round(random.uniform(-0.38, -0.18), 4)
+            is_anomaly = True
+        else:
+            anomaly_score = round(random.uniform(0.04, 0.22), 4)
+            is_anomaly = False
     elif predicted_label == 1:  # DDoS
         base_risk = 78.0 + (p_spike * 12.0) + (b_spike * 10.0)
         anomaly_score = round(random.uniform(-0.52, -0.28), 4)
@@ -183,9 +188,37 @@ def process_csv(file_path, dataset_id):
                 "shap_features": shap_features,
                 "mitre_techniques": MITRE_MAP[predicted_label],
                 # Human verification placeholder (interactive in dashboard)
-                "verification_status": "pending",  # 'pending', 'verified', 'false_positive'
+                "verification_status": "pending",  # 'pending', 'verified', 'warning', 'false_positive'
                 "analyst_notes": ""
             }
+
+            # If this is the attack simulation dataset, attach scenario metadata to target windows
+            if dataset_id == "attack_sim":
+                if idx == 10:
+                    window_data["scenario"] = {
+                        "type": "confirmed_threat",
+                        "title": "Live DoS / SYN Flood Attack (Confirmed Threat)",
+                        "desc": "Volumetric SYN flood detected with 92k pkts/s, 3,120 connections, and 28.5% SYN ratio. Triggers Critical Alert (Risk Score > 90) and MITRE T1499. SOC analyst confirms active DoS incident.",
+                        "recommended_action": "verified",
+                        "badge_label": "🛡️ Confirmed Threat"
+                    }
+                elif idx == 25:
+                    window_data["scenario"] = {
+                        "type": "downgrade",
+                        "title": "Off-Hours Backup Replication (Downgrade Candidate)",
+                        "desc": "Extreme byte transfer throughput (8.95 MB/s) triggered High Severity volumetric alert. However, 0.9% clean SYN ratio and 180 persistent flows indicate benign database sync. SOC analyst downgrades alert to Warning.",
+                        "recommended_action": "warning",
+                        "badge_label": "⚠️ Downgrade"
+                    }
+                elif idx == 40:
+                    window_data["scenario"] = {
+                        "type": "false_positive",
+                        "title": "Internal Staging Dev Probe (False Positive Candidate)",
+                        "desc": "Rapid burst of 2,240 connections from internal staging runner triggered Isolation Forest anomaly. Verification confirms benign automated integration test. SOC analyst marks alert as False Positive.",
+                        "recommended_action": "false_positive",
+                        "badge_label": "❌ False Positive"
+                    }
+
             windows.append(window_data)
 
     return windows, summary
@@ -194,6 +227,7 @@ def process_csv(file_path, dataset_id):
 def main():
     test_path = os.path.join(DATA_DIR, "test.csv")
     train_path = os.path.join(DATA_DIR, "train.csv")
+    sim_path = os.path.join(DATA_DIR, "attack_sim.csv")
 
     print(f"[+] Processing {test_path}...")
     test_windows, test_summary = process_csv(test_path, "test")
@@ -201,29 +235,50 @@ def main():
     print(f"[+] Processing {train_path}...")
     train_windows, train_summary = process_csv(train_path, "train")
 
+    datasets_dict = {
+        "test": {
+            "name": "test.csv (Evaluation Split)",
+            "description": "220 stratified 1-minute windows (80/20 test split)",
+            "total_windows": len(test_windows),
+            "summary": test_summary,
+            "windows": test_windows,
+        },
+        "train": {
+            "name": "train.csv (Training Split)",
+            "description": "869 stratified 1-minute windows (baseline training split)",
+            "total_windows": len(train_windows),
+            "summary": train_summary,
+            "windows": train_windows,
+        }
+    }
+
+    if os.path.exists(sim_path):
+        print(f"[+] Processing {sim_path}...")
+        sim_windows, sim_summary = process_csv(sim_path, "attack_sim")
+        datasets_dict["attack_sim"] = {
+            "name": "attack_sim.csv (Live Attack & Triage Demo)",
+            "description": "Synthetic attack injection showcasing Confirmed Threat, Downgrade, and False Positive triage workflows",
+            "total_windows": len(sim_windows),
+            "summary": sim_summary,
+            "windows": sim_windows,
+            "scenarios": [
+                {"index": 10, "type": "confirmed_threat", "title": "Live DoS (Confirmed Threat)", "badge": "🛡️ Confirmed Threat"},
+                {"index": 25, "type": "downgrade", "title": "Backup Sync (Downgrade)", "badge": "⚠️ Downgrade"},
+                {"index": 40, "type": "false_positive", "title": "Dev Probe (False Positive)", "badge": "❌ False Positive"},
+            ]
+        }
+
+    active_ds = "attack_sim" if os.path.exists(sim_path) else "test"
+    primary_windows = datasets_dict[active_ds]["windows"]
+
     combined_data = {
         "project": "Chronoguard",
         "dataset_name": "CICIDS2017",
-        "active_dataset": "test",
-        "datasets": {
-            "test": {
-                "name": "test.csv (Evaluation Split)",
-                "description": "220 stratified 1-minute windows (80/20 test split)",
-                "total_windows": len(test_windows),
-                "summary": test_summary,
-                "windows": test_windows,
-            },
-            "train": {
-                "name": "train.csv (Training Split)",
-                "description": "869 stratified 1-minute windows (baseline training split)",
-                "total_windows": len(train_windows),
-                "summary": train_summary,
-                "windows": train_windows,
-            }
-        },
+        "active_dataset": active_ds,
+        "datasets": datasets_dict,
         # Backwards compatibility for single-dataset direct access
-        "windows": test_windows,
-        "total_test_windows": len(test_windows),
+        "windows": primary_windows,
+        "total_test_windows": len(primary_windows),
         "classes": {str(k): v for k, v in LABEL_NAMES.items()},
         "model_info": {
             "classifier": "HistGradientBoostingClassifier / XGBoost",
@@ -241,14 +296,14 @@ def main():
     data_js_path = os.path.join(DASHBOARD_DIR, "data.js")
     with open(data_js_path, "w", encoding="utf-8") as f:
         f.write("// Auto-generated by pipeline/generate_dashboard_data.py\n")
-        f.write("// Contains both test.csv (220 windows) and train.csv (869 windows)\n\n")
+        f.write(f"// Generated datasets: {', '.join(datasets_dict.keys())}\n\n")
         f.write("window.CHRONOGUARD_DATA = ")
         json.dump(combined_data, f, indent=2)
         f.write(";\n")
 
     print(f"[OK] Successfully generated {data_js_path}")
-    print(f"     Test windows: {len(test_windows)} (Critical: {test_summary['critical_count']})")
-    print(f"     Train windows: {len(train_windows)} (Critical: {train_summary['critical_count']})")
+    for k, ds in datasets_dict.items():
+        print(f"     {k}: {ds['total_windows']} windows (Critical: {ds['summary']['critical_count']})")
 
     # Save outputs/risk_table.csv for test dataset
     os.makedirs(OUTPUTS_DIR, exist_ok=True)

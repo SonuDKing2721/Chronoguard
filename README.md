@@ -199,19 +199,28 @@ python notebooks/train_anomaly.py
 python notebooks/explainability.py
 ```
 
-#### 2. Run Integration Pipeline
+#### 2. Run Integration Pipeline & Attack Simulator
 
 ```bash
+# Run integration pipeline + base dashboard data
 python pipeline/run_pipeline.py
+
+# (Optional) Generate live attack & triage scenarios (Confirmed Threat, Downgrade, False Positive)
+python pipeline/simulate_attack.py
 ```
 
-This also auto-generates `dashboard/data.js`.
+This updates `dashboard/data.js` with `test.csv`, `train.csv`, and `attack_sim.csv`.
 
-#### 3. Open Dashboard
+#### 3. Open Dashboard & Live Attack Showcase
 
 Open `dashboard/index.html` in any modern browser. **No server required** — works completely offline.
 
-**Dashboard Controls:**
+**Live Attack & Triage Demo Buttons:**
+- **🛡️ 1. Confirmed Threat:** Jumps to live DoS/SYN flood attack (Risk > 90, Critical, MITRE T1499), demonstrates analyst incident confirmation.
+- **⚠️ 2. Downgrade:** Jumps to off-hours heavy backup sync (high volumetric throughput), demonstrates analyst downgrade to Warning.
+- **❌ 3. False Positive:** Jumps to internal dev benchmark probe, demonstrates Isolation Forest anomaly review and false positive dismissal.
+
+**Playback Controls:**
 - **Arrow keys** or click ◀/▶ to step through windows
 - **Spacebar** to auto-play
 - **Click timeline** to jump to any window

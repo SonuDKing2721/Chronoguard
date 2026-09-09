@@ -23,6 +23,7 @@ secrets.py
 *.csv
 !data/train.csv
 !data/test.csv
+!data/attack_sim.csv
 
 # ── Model files (large binaries — optional to exclude) ────────
 # Uncomment the lines below if you don't want to commit .joblib files

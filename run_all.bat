@@ -70,8 +70,13 @@ IF %ERRORLEVEL% NEQ 0 (
 echo.
 
 REM Step 5: Demo scenarios
-echo [6/6] Selecting Demo Scenarios...
+echo [6/7] Selecting Demo Scenarios...
 python pipeline\demo_scenarios.py
+echo.
+
+REM Step 6: Live Attack & Triage Simulation
+echo [7/7] Generating Live Attack Simulation & Triage Scenarios...
+python pipeline\simulate_attack.py
 echo.
 
 echo ================================================

@@ -18,6 +18,7 @@
 
     // Map of datasets
     const datasets = {
+        attack_sim: RAW_DATA.datasets?.attack_sim || null,
         test: RAW_DATA.datasets?.test || {
             name: "test.csv (Evaluation Split)",
             windows: RAW_DATA.windows || [],
@@ -31,8 +32,8 @@
         custom: null
     };
 
-    let activeDatasetKey = "test";
-    let activeDataset = datasets.test;
+    let activeDatasetKey = datasets.attack_sim ? "attack_sim" : "test";
+    let activeDataset = datasets[activeDatasetKey];
     let windows = activeDataset.windows;
     let TOTAL = windows.length;
     let currentIndex = 0;
@@ -157,6 +158,17 @@
     const btnAuditFalsePos = $("#btnAuditFalsePos");
     const analystNotesInput = $("#analystNotesInput");
     const btnSaveNotes = $("#btnSaveNotes");
+
+    // Live Attack & Triage Demo Elements
+    const btnDemoThreat = $("#btnDemoThreat");
+    const btnDemoDowngrade = $("#btnDemoDowngrade");
+    const btnDemoFalsePos = $("#btnDemoFalsePos");
+    const scenarioBanner = $("#scenarioBanner");
+    const scenarioPill = $("#scenarioPill");
+    const scenarioBannerTitle = $("#scenarioBannerTitle");
+    const scenarioBannerDesc = $("#scenarioBannerDesc");
+    const scenarioActionHint = $("#scenarioActionHint");
+    const btnExecuteTriage = $("#btnExecuteTriage");
 
     // Table elements
     const trafficTableBody = $("#trafficTableBody");
@@ -471,6 +483,16 @@
             reasons.push(`Isolation Forest anomaly deviation (${w.anomaly_score.toFixed(3)})`);
         }
 
+        if (w.scenario) {
+            const isThreat = w.scenario.type === "confirmed_threat";
+            const isDown = w.scenario.type === "downgrade";
+            criticalReasonCard.style.borderLeftColor = isThreat ? "var(--risk-critical)" : (isDown ? "var(--risk-high)" : "var(--accent-cyan)");
+            criticalReasonTitle.textContent = `${w.scenario.title} — Risk Score ${w.risk_score.toFixed(1)}`;
+            criticalReasonTitle.style.color = isThreat ? "var(--risk-critical)" : (isDown ? "var(--risk-high)" : "var(--accent-cyan)");
+            criticalReasonText.innerHTML = `<strong>${w.scenario.desc}</strong><br><br><span style="color:var(--text-muted);font-weight:600;">Key Diagnostics:</span> ${reasons.join(". ")}.`;
+            return;
+        }
+
         if (isCrit) {
             criticalReasonCard.style.borderLeftColor = "var(--risk-critical)";
             criticalReasonTitle.textContent = `Score ${w.risk_score.toFixed(1)} ≥ User Critical Cutoff (${userThresholds.critical})`;
@@ -501,6 +523,24 @@
             auditStore[windowKey] = { status: "pending", notes: "" };
         }
         auditStore[windowKey].status = decision;
+
+        // Log audit event to alert feed
+        const actionLabels = {
+            "verified": "🛡️ Incident Confirmed as Active Threat",
+            "warning": "⚠️ Alert Downgraded to Warning",
+            "false_positive": "❌ Alert Dismissed as False Positive"
+        };
+        const auditAlert = {
+            time: w.timestamp,
+            level: (decision === "verified") ? "Critical" : ((decision === "warning") ? "Medium" : "Low"),
+            label: actionLabels[decision] || "Triage Action",
+            score: w.risk_score,
+            windowIdx: currentIndex
+        };
+        alertLog.unshift(auditAlert);
+        if (alertLog.length > 60) alertLog.pop();
+        renderAlerts();
+
         renderAuditPanel(w);
         updateCountsAndFilters();
         renderTableRows();
@@ -1056,6 +1096,89 @@
         recalculateActiveDatasetScores();
         updateDashboard(currentIndex);
         renderTableRows();
+    });
+
+    // ──── Live Attack Scenario Demonstrations ────
+    function launchScenario(targetIndex, scenarioType) {
+        stopPlay();
+        if (activeDatasetKey !== "attack_sim" && datasets.attack_sim) {
+            if (datasetSelect) datasetSelect.value = "attack_sim";
+            applyDataset("attack_sim");
+        }
+
+        updateDashboard(targetIndex);
+
+        const w = windows[targetIndex];
+        if (!w) return;
+
+        if (scenarioBanner) {
+            scenarioBanner.style.display = "block";
+            const pillClasses = {
+                "confirmed_threat": "pill-threat",
+                "downgrade": "pill-downgrade",
+                "false_positive": "pill-falsepos"
+            };
+            if (scenarioPill) {
+                scenarioPill.className = `scenario-pill ${pillClasses[scenarioType] || ''}`;
+            }
+
+            if (scenarioType === "confirmed_threat") {
+                if (scenarioPill) scenarioPill.textContent = "SCENARIO 1: CONFIRMED THREAT (TRUE POSITIVE)";
+                if (scenarioBannerTitle) scenarioBannerTitle.textContent = "Live Volumetric DoS / SYN Flood Attack Detected";
+                if (scenarioBannerDesc) scenarioBannerDesc.textContent = "Telemetry exhibits critical SYN flood patterns (92,450 pkts/s, 28.5% SYN ratio). Model engines and Isolation Forest concur on Critical Risk (>90). SOC analyst verifies and confirms active incident.";
+                if (scenarioActionHint) scenarioActionHint.textContent = "Recommended Action: Click 'Auto-Triage' or 'Confirm Threat' in Audit Panel";
+                if (btnExecuteTriage) {
+                    btnExecuteTriage.textContent = "🛡️ Auto-Confirm Threat";
+                    btnExecuteTriage.dataset.decision = "verified";
+                }
+            } else if (scenarioType === "downgrade") {
+                if (scenarioPill) scenarioPill.textContent = "SCENARIO 2: DOWNGRADE TO WARNING (TRIAGE)";
+                if (scenarioBannerTitle) scenarioBannerTitle.textContent = "Off-Hours Heavy Database Backup Replication";
+                if (scenarioBannerDesc) scenarioBannerDesc.textContent = "Severe byte rate spike (8.95 MB/s) triggered High Severity volumetric alert. However, 0.9% clean SYN ratio and 180 persistent flows confirm authorized DB synchronization. Analyst downgrades threat to Warning.";
+                if (scenarioActionHint) scenarioActionHint.textContent = "Recommended Action: Click 'Auto-Triage' or 'Downgrade' in Audit Panel";
+                if (btnExecuteTriage) {
+                    btnExecuteTriage.textContent = "⚠️ Auto-Downgrade to Warning";
+                    btnExecuteTriage.dataset.decision = "warning";
+                }
+            } else if (scenarioType === "false_positive") {
+                if (scenarioPill) scenarioPill.textContent = "SCENARIO 3: FALSE POSITIVE (BENIGN EDGE CASE)";
+                if (scenarioBannerTitle) scenarioBannerTitle.textContent = "Internal Staging Subnet Dev Probe / API Benchmark";
+                if (scenarioBannerDesc) scenarioBannerDesc.textContent = "Isolation Forest flagged deviation due to sudden 2,240 connection burst from internal staging runner. Investigation confirms benign integration tests with zero malicious payload. Analyst dismisses as False Positive.";
+                if (scenarioActionHint) scenarioActionHint.textContent = "Recommended Action: Click 'Auto-Triage' or 'False Positive' in Audit Panel";
+                if (btnExecuteTriage) {
+                    btnExecuteTriage.textContent = "❌ Auto-Mark False Positive";
+                    btnExecuteTriage.dataset.decision = "false_positive";
+                }
+            }
+        }
+
+        $$(".demo-btn").forEach(b => b.classList.remove("active-scenario"));
+        if (scenarioType === "confirmed_threat") btnDemoThreat?.classList.add("active-scenario");
+        if (scenarioType === "downgrade") btnDemoDowngrade?.classList.add("active-scenario");
+        if (scenarioType === "false_positive") btnDemoFalsePos?.classList.add("active-scenario");
+
+        const auditPanel = $("#auditPanel");
+        if (auditPanel) {
+            auditPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    }
+
+    btnDemoThreat?.addEventListener("click", () => launchScenario(10, "confirmed_threat"));
+    btnDemoDowngrade?.addEventListener("click", () => launchScenario(25, "downgrade"));
+    btnDemoFalsePos?.addEventListener("click", () => launchScenario(40, "false_positive"));
+
+    btnExecuteTriage?.addEventListener("click", () => {
+        const decision = btnExecuteTriage.dataset.decision;
+        if (!decision) return;
+        setAuditDecision(decision);
+
+        const prevText = btnExecuteTriage.textContent;
+        btnExecuteTriage.textContent = "✓ Triage Decision Applied!";
+        btnExecuteTriage.style.background = "#10b981";
+        setTimeout(() => {
+            btnExecuteTriage.textContent = prevText;
+            btnExecuteTriage.style.background = "";
+        }, 1800);
     });
 
     // ──── Audit Panel Action Buttons ────

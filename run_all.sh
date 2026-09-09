@@ -47,8 +47,13 @@ $PYTHON pipeline/run_pipeline.py
 echo ""
 
 # Step 5: Demo scenarios
-echo "[6/6] Selecting Demo Scenarios..."
+echo "[6/7] Selecting Demo Scenarios..."
 $PYTHON pipeline/demo_scenarios.py
+echo ""
+
+# Step 6: Live Attack & Triage Simulation
+echo "[7/7] Generating Live Attack Simulation & Triage Scenarios..."
+$PYTHON pipeline/simulate_attack.py
 echo ""
 
 echo "================================================"
